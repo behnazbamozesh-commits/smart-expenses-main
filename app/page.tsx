@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AppLayout } from '@/components/app';
 import { DashboardStats, RecentTransactions, QuickActions } from '@/components/dashboard';
-import { getDashboardData } from '@/lib/data';
+import { getTransactions } from '@/lib/data';
 import { Transaction } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { Calendar } from 'lucide-react';
@@ -15,32 +15,30 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState<{
-    totalIncome: number;
-    totalExpenses: number;
-    netProfit: number;
-    largestCategory: { category: string; amount: number } | null;
-    recentTransactions: Transaction[];
-  } | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
     if (user) {
-      loadDashboardData();
+      loadTransactions();
     }
   }, [user]);
 
-  const loadDashboardData = async () => {
+  const loadTransactions = async () => {
     try {
       setLoading(true);
       if (!user) return;
-      const data = await getDashboardData(user.id);
-      setDashboardData(data);
+      const data = await getTransactions(user.id);
+      setTransactions(data);
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      console.error('Error loading transactions:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  const recentTransactions = [...transactions]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 5);
 
   if (authLoading || loading) {
     return (
@@ -66,16 +64,6 @@ export default function DashboardPage() {
     );
   }
 
-  if (!dashboardData) {
-    return (
-      <AppLayout title={t('dashboard')}>
-        <div className="text-center py-12">
-          <p className="text-slate-400">{t('failedToLoad')}</p>
-        </div>
-      </AppLayout>
-    );
-  }
-
   return (
     <AppLayout title={t('dashboard')}>
       <div className="space-y-6">
@@ -89,15 +77,10 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <DashboardStats
-          totalIncome={dashboardData.totalIncome}
-          totalExpenses={dashboardData.totalExpenses}
-          netProfit={dashboardData.netProfit}
-          largestCategory={dashboardData.largestCategory}
-        />
+        <DashboardStats transactions={transactions} />
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <RecentTransactions transactions={dashboardData.recentTransactions} />
+          <RecentTransactions transactions={recentTransactions} />
           <QuickActions />
         </div>
       </div>

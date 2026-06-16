@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { AppLayout } from '@/components/app';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,16 +20,18 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/lib/supabase';
 import { createTransaction } from '@/lib/data';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CircleAlert as AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
 export default function NewTransactionPage() {
   const { user } = useAuth();
+  const { isRTL } = useLanguage();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [type, setType] = useState<'income' | 'expense'>('expense');
+  const [transactionType, setTransactionType] = useState<'all' | 'business' | 'personal'>('personal');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -64,6 +67,7 @@ export default function NewTransactionPage() {
         date,
         description: description || undefined,
         source: 'manual',
+        transaction_type: transactionType,
       });
 
       toast.success('Transaction created successfully');
@@ -85,16 +89,16 @@ export default function NewTransactionPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-white">Add Transaction</h1>
-            <p className="text-slate-400 mt-1">Record a new income or expense</p>
+            <h1 className="text-2xl font-bold text-white">{isRTL ? 'افزودن تراکنش' : 'Add Transaction'}</h1>
+            <p className="text-slate-400 mt-1">{isRTL ? 'ثبت درآمد یا هزینه جدید' : 'Record a new income or expense'}</p>
           </div>
         </div>
 
         <Card className="border-slate-700 bg-slate-800/50">
           <CardHeader>
-            <CardTitle className="text-white">Transaction Details</CardTitle>
+            <CardTitle className="text-white">{isRTL ? 'جزئیات تراکنش' : 'Transaction Details'}</CardTitle>
             <CardDescription className="text-slate-400">
-              Enter the details of your transaction
+              {isRTL ? 'جزئیات تراکنش خود را وارد کنید' : 'Enter the details of your transaction'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -107,7 +111,7 @@ export default function NewTransactionPage() {
               )}
 
               <div className="space-y-3">
-                <Label className="text-slate-300">Transaction Type</Label>
+                <Label className="text-slate-300">{isRTL ? 'نوع تراکنش' : 'Transaction Type'}</Label>
                 <RadioGroup
                   value={type}
                   onValueChange={(v) => {
@@ -118,11 +122,29 @@ export default function NewTransactionPage() {
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="expense" id="expense" className="border-slate-600 text-emerald-500" />
-                    <Label htmlFor="expense" className="text-slate-300 cursor-pointer">Expense</Label>
+                    <Label htmlFor="expense" className="text-slate-300 cursor-pointer">{isRTL ? 'هزینه' : 'Expense'}</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="income" id="income" className="border-slate-600 text-emerald-500" />
-                    <Label htmlFor="income" className="text-slate-300 cursor-pointer">Income</Label>
+                    <Label htmlFor="income" className="text-slate-300 cursor-pointer">{isRTL ? 'درآمد' : 'Income'}</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-slate-300">{isRTL ? 'نوع حساب' : 'Account Type'}</Label>
+                <RadioGroup
+                  value={transactionType}
+                  onValueChange={(v) => setTransactionType(v as typeof transactionType)}
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="personal" id="personal" className="border-slate-600 text-emerald-500" />
+                    <Label htmlFor="personal" className="text-slate-300 cursor-pointer">{isRTL ? 'خانواده' : 'Family'}</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="business" id="business" className="border-slate-600 text-emerald-500" />
+                    <Label htmlFor="business" className="text-slate-300 cursor-pointer">{isRTL ? 'کسب‌وکار' : 'Business'}</Label>
                   </div>
                 </RadioGroup>
               </div>
@@ -130,7 +152,7 @@ export default function NewTransactionPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="amount" className="text-slate-300">
-                    Amount <span className="text-red-400">*</span>
+                    {isRTL ? 'مبلغ' : 'Amount'} <span className="text-red-400">*</span>
                   </Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
@@ -149,7 +171,7 @@ export default function NewTransactionPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="date" className="text-slate-300">
-                    Date <span className="text-red-400">*</span>
+                    {isRTL ? 'تاریخ' : 'Date'} <span className="text-red-400">*</span>
                   </Label>
                   <Input
                     id="date"
@@ -163,11 +185,11 @@ export default function NewTransactionPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="category" className="text-slate-300">
-                  Category <span className="text-red-400">*</span>
+                  {isRTL ? 'دسته‌بندی' : 'Category'} <span className="text-red-400">*</span>
                 </Label>
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger className="bg-slate-900/50 border-slate-600 text-white focus:border-emerald-500">
-                    <SelectValue placeholder="Select a category" />
+                    <SelectValue placeholder={isRTL ? 'دسته‌بندی را انتخاب کنید' : 'Select a category'} />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-slate-700">
                     {categories.map((cat) => (
@@ -180,10 +202,10 @@ export default function NewTransactionPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description" className="text-slate-300">Description (Optional)</Label>
+                <Label htmlFor="description" className="text-slate-300">{isRTL ? 'توضیحات (اختیاری)' : 'Description (Optional)'}</Label>
                 <Textarea
                   id="description"
-                  placeholder="Add a note about this transaction..."
+                  placeholder={isRTL ? 'یادداشتی درباره این تراکنش اضافه کنید...' : 'Add a note about this transaction...'}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-emerald-500 min-h-[80px]"
@@ -193,11 +215,11 @@ export default function NewTransactionPage() {
               <div className="flex gap-3 pt-4">
                 <Link href="/transactions" className="flex-1">
                   <Button variant="outline" type="button" className="w-full border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white">
-                    Cancel
+                    {isRTL ? 'انصراف' : 'Cancel'}
                   </Button>
                 </Link>
                 <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" disabled={loading}>
-                  {loading ? 'Creating...' : 'Create Transaction'}
+                  {loading ? (isRTL ? 'در حال ایجاد...' : 'Creating...') : (isRTL ? 'ایجاد تراکنش' : 'Create Transaction')}
                 </Button>
               </div>
             </form>

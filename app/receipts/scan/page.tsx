@@ -17,10 +17,11 @@ import {
 import { EXPENSE_CATEGORIES } from '@/lib/supabase';
 import { createReceipt, createReceiptItem, createTransaction } from '@/lib/data';
 import { useRouter } from 'next/navigation';
-import { Upload, ArrowLeft, Loader2, Check, X, FileText, Plus, Trash2 } from 'lucide-react';
+import { Upload, ArrowLeft, Loader as Loader2, Check, X, FileText, Plus, Trash2, ScanText } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import Image from 'next/image';
+import Tesseract from 'tesseract.js';
 
 type ExtractedItem = { item_name: string; quantity: number; price: number };
 
@@ -34,7 +35,7 @@ type ExtractedData = {
   raw_text: string;
 };
 
-// Resize image on canvas to keep payload under ~1MB
+// Resize image on canvas to keep payload over ~1MB
 function resizeImage(file: File, maxDim = 1200): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new window.Image();
@@ -57,6 +58,119 @@ function resizeImage(file: File, maxDim = 1200): Promise<string> {
   });
 }
 
+// Parse OCR text to extract receipt data
+function parseReceiptText(text: string): ExtractedData {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+  let store_name = '';
+  let receipt_date = todayStr;
+  let subtotal = 0;
+  let tax = 0;
+  let total = 0;
+  const items: ExtractedItem[] = [];
+
+  // Common store name patterns (usually first meaningful line)
+  const storePatterns = [
+    /^(.+?(?:store|market|mart|shop|inc|llc|co\.?|ltd))/i,
+    /^(.+?)\s{2,}/,  // Line with multiple spaces (often store name + address)
+  ];
+
+  // Date patterns
+  const datePatterns = [
+    /(\d{4}[-/]\d{2}[-/]\d{2})/,
+    /(\d{2}[-/]\d{2}[-/]\d{4})/,
+    /(\d{1,2}\/\d{1,2}\/\d{2,4})/,
+    /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2},?\s*\d{4}/i,
+  ];
+
+  // Price pattern: $XX.XX or XX.XX
+  const pricePattern = /\$?(\d+\.\d{2})/g;
+
+  // Total patterns (look for keywords)
+  const totalKeywords = ['total', 'amount', 'grand total', 'balance', 'sum'];
+  const subtotalKeywords = ['subtotal', 'sub total', 'sub-total', 'sub'];
+  const taxKeywords = ['tax', 'vat', 'gst', 'sales tax'];
+
+  // Find store name (first non-empty line that doesn't look like a price)
+  for (const line of lines.slice(0, 5)) {
+    if (!/^\$?\d+\.\d{2}$/.test(line) && line.length > 2) {
+      store_name = line;
+      break;
+    }
+  }
+
+  // Find date
+  for (const line of lines) {
+    for (const pattern of datePatterns) {
+      const match = line.match(pattern);
+      if (match) {
+        try {
+          const d = new Date(match[1] || match[0]);
+          if (!isNaN(d.getTime())) {
+            receipt_date = d.toISOString().split('T')[0];
+          }
+        } catch {}
+      }
+    }
+  }
+
+  // Process each line for amounts
+  for (const line of lines) {
+    const lowerLine = line.toLowerCase();
+    const prices = [...line.matchAll(pricePattern)].map(m => parseFloat(m[1]));
+
+    if (prices.length > 0) {
+      const amount = prices[prices.length - 1]; // Take the last price on the line
+
+      // Check for total
+      if (totalKeywords.some(k => lowerLine.includes(k)) && !subtotalKeywords.some(k => lowerLine.includes(k))) {
+        total = Math.max(total, amount);
+      }
+      // Check for subtotal
+      else if (subtotalKeywords.some(k => lowerLine.includes(k))) {
+        subtotal = amount;
+      }
+      // Check for tax
+      else if (taxKeywords.some(k => lowerLine.includes(k))) {
+        tax = amount;
+      }
+      // Otherwise it might be an item
+      else if (!totalKeywords.some(k => lowerLine.includes(k)) &&
+               !subtotalKeywords.some(k => lowerLine.includes(k)) &&
+               !taxKeywords.some(k => lowerLine.includes(k)) &&
+               line.length > 3 && amount > 0) {
+        // Extract item name (remove price from end)
+        let itemName = line.replace(/\$?\d+\.\d{2}$/, '').replace(/\s+/g, ' ').trim();
+        if (itemName && itemName.length > 1 && !/^\d+$/.test(itemName)) {
+          items.push({ item_name: itemName, quantity: 1, price: amount });
+        }
+      }
+    }
+  }
+
+  // If no total found but we have items, calculate from items
+  if (total === 0 && items.length > 0) {
+    subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+    total = subtotal + tax;
+  }
+
+  // If we have total but no subtotal, use total as subtotal
+  if (subtotal === 0 && total > 0) {
+    subtotal = total - tax;
+  }
+
+  return {
+    store_name: store_name || 'Unknown Store',
+    receipt_date,
+    subtotal: Math.round(subtotal * 100) / 100,
+    tax: Math.round(tax * 100) / 100,
+    total: Math.round(total * 100) / 100,
+    items: items.slice(0, 20), // Limit to 20 items
+    raw_text: text,
+  };
+}
+
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default function ScanReceiptPage() {
@@ -64,6 +178,7 @@ export default function ScanReceiptPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -80,6 +195,7 @@ export default function ScanReceiptPage() {
     reader.onload = (e) => setImagePreview(e.target?.result as string);
     reader.readAsDataURL(file);
     setEditedData(null);
+    setOcrProgress(0);
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,36 +213,44 @@ export default function ScanReceiptPage() {
     setImagePreview(null);
     setImageFile(null);
     setEditedData(null);
+    setOcrProgress(0);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const processOCR = async () => {
     if (!imageFile) return;
     setOcrLoading(true);
+    setOcrProgress(0);
     try {
-      // Resize client-side so large/high-res images don't time out the function
-      const base64 = await resizeImage(imageFile);
+      // Use Tesseract.js for client-side OCR
+      const result = await Tesseract.recognize(imageFile, 'eng', {
+        logger: (m) => {
+          if (m.status === 'recognizing text') {
+            setOcrProgress(Math.round(m.progress * 100));
+          }
+        },
+      });
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ocr-receipt`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({ imageBase64: base64 }),
-        }
-      );
+      const rawText = result.data.text;
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'OCR processing failed');
+      if (rawText && rawText.trim().length > 0) {
+        // Parse the OCR text to extract receipt data
+        const parsed = parseReceiptText(rawText);
+        setEditedData(parsed);
+        toast.success(`Data extracted from receipt: ${parsed.store_name} - ${parsed.items.length} items found`);
+      } else {
+        // No text found, show blank form
+        setEditedData({
+          store_name: '',
+          receipt_date: today(),
+          subtotal: 0,
+          tax: 0,
+          total: 0,
+          items: [],
+          raw_text: '',
+        });
+        toast.warning('No text found in image. Please fill in the details manually.');
       }
-
-      setEditedData(data);
-      toast.success('Data extracted — review and edit below');
     } catch (error) {
       console.error('OCR Error:', error);
       // On any failure, open a blank editable form so the user can enter manually
@@ -142,6 +266,7 @@ export default function ScanReceiptPage() {
       toast.error('Could not auto-extract data. Please fill in the details manually.');
     } finally {
       setOcrLoading(false);
+      setOcrProgress(0);
     }
   };
 
@@ -216,8 +341,6 @@ export default function ScanReceiptPage() {
     }
   };
 
-  const fmt = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
-
   return (
     <AppLayout title="Scan Receipt">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -244,7 +367,7 @@ export default function ScanReceiptPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div
-                className={`relative border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
+                className={`relative border-2 border-dashed rounded-lg transition-colors cursor-pointer overflow-hidden ${
                   imagePreview ? 'border-emerald-500/50 bg-emerald-500/5 p-2' : 'border-slate-600 hover:border-slate-500 p-8 text-center'
                 }`}
                 onDrop={handleDrop}
@@ -273,6 +396,22 @@ export default function ScanReceiptPage() {
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
               </div>
 
+              {/* OCR Progress bar */}
+              {ocrLoading && ocrProgress > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>Processing image...</span>
+                    <span>{ocrProgress}%</span>
+                  </div>
+                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 transition-all duration-300"
+                      style={{ width: `${ocrProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
               <Button
                 onClick={processOCR}
                 disabled={!imageFile || ocrLoading}
@@ -281,7 +420,7 @@ export default function ScanReceiptPage() {
                 {ocrLoading ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Processing...</>
                 ) : (
-                  <><FileText className="h-4 w-4 mr-2" />Extract Data</>
+                  <><ScanText className="h-4 w-4 mr-2" />Extract Data</>
                 )}
               </Button>
 
@@ -347,7 +486,7 @@ export default function ScanReceiptPage() {
                 {/* Items */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-slate-300">Items</Label>
+                    <Label className="text-slate-300">Items ({editedData.items.length})</Label>
                     <button onClick={addItem} className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1">
                       <Plus className="h-3 w-3" />Add item
                     </button>
@@ -386,6 +525,18 @@ export default function ScanReceiptPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Raw extracted text (collapsible) */}
+                {editedData.raw_text && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-slate-400 hover:text-slate-300">
+                      View raw extracted text
+                    </summary>
+                    <pre className="mt-2 p-2 bg-slate-900 rounded border border-slate-700 text-slate-400 overflow-x-auto max-h-32">
+                      {editedData.raw_text}
+                    </pre>
+                  </details>
+                )}
 
                 <div className="space-y-1.5">
                   <Label className="text-slate-300">

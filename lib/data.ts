@@ -97,6 +97,7 @@ export async function createTransaction(transaction: {
   description?: string;
   source?: 'manual' | 'receipt';
   receipt_id?: string;
+  transaction_type?: 'all' | 'business' | 'personal';
 }) {
   if (isDemo(transaction.user_id)) {
     const newTx: Transaction = {
@@ -104,6 +105,7 @@ export async function createTransaction(transaction: {
       receipt_id: transaction.receipt_id ?? null,
       source: transaction.source ?? 'manual',
       description: transaction.description ?? null,
+      transaction_type: transaction.transaction_type ?? 'personal',
       created_at: new Date().toISOString(),
       ...transaction,
     };

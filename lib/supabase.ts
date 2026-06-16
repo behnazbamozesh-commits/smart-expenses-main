@@ -21,6 +21,7 @@ export type Transaction = {
   description: string | null;
   source: 'manual' | 'receipt';
   receipt_id: string | null;
+  transaction_type: 'all' | 'business' | 'personal';
   created_at: string;
 };
 

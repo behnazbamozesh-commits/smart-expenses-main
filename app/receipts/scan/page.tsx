@@ -58,8 +58,37 @@ function resizeImage(file: File, maxDim = 1200): Promise<string> {
   });
 }
 
+// Auto-category detection: map store names / item keywords to categories
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  'Food & Dining': ['walmart', 'costco', 'safeway', 'loblaws', 'superstore', 'metro', 'save-on', 'grocery', 'market', 'food', 'bakery', 'butcher', 'restaurant', 'cafe', 'coffee', 'tim hortons', 'starbucks', 'mcdonald', 'subway', 'pizza', 'burger', 'kitchen', 'diner', 'bistro', 'grill', 'sushi', 'ramen', 'panera', 'chipotle', 'nando', 'kfc', 'wendy', 'a&w', 'dairy queen', 'breakfast', 'lunch', 'dinner', 'meal', 'appetiz', 'entree', 'beverage', 'drink', 'snack'],
+  'Transportation': ['shell', 'esso', 'chevron', 'petro', 'gas', 'fuel', 'exxon', 'bp', 'sunoco', ' Irving', 'circle k', 'pioneer', ' canadian tire gas', 'uber', 'lyft', 'taxi', 'cab', 'transit', 'metro pass', 'bus', 'train', 'parking', 'toll', 'car wash', 'auto', 'oil change', 'tire'],
+  'Shopping': ['amazon', 'ebay', 'etsy', 'wish', 'aliexpress', 'target', 'zara', 'h&m', 'uniqlo', 'nordstrom', 'saks', 'macy', 'kohl', 'tj maxx', 'marshalls', 'winners', 'best buy', 'walmart', 'costco', 'ikea', 'home sense', 'mall', 'outlet', 'fashion', 'clothes', 'shoes', 'electronics', 'apparel'],
+  'Entertainment': ['netflix', 'spotify', 'apple music', 'disney', 'hulu', 'prime video', 'youtube', 'crave', 'cineplex', 'landmark', 'amc', 'imax', 'cinema', 'movie', 'theatre', 'concert', 'game', 'gaming', 'steam', 'playstation', 'xbox', 'nintendo', 'ticketmaster', 'sport', 'gym', 'fitness', 'yoga'],
+  'Bills & Utilities': ['bell', 'rogers', 'telus', 'shaw', 'freedom', 'fido', 'koodo', 'virgin mobile', 'hydro', 'electric', 'water', 'gas bill', 'enbridge', 'union gas', 'internet', 'phone', 'mobile', 'insurance', 'rent', 'mortgage', 'property tax'],
+  'Healthcare': ['shopper', 'rexall', 'pharmacy', 'drug', 'medical', 'dental', 'optometrist', 'physio', 'chiropract', 'massage', 'acupunct', 'hospital', 'clinic', 'doctor', 'prescription', 'vision', 'lens', 'glasses'],
+  'Education': ['university', 'college', 'school', 'tuition', 'course', 'udemy', 'coursera', 'skillshare', 'book', 'textbook', 'kindle', 'library', 'workshop', 'seminar', 'training'],
+  'Travel': ['airbnb', 'booking', 'expedia', 'hotels', 'marriott', 'hilton', 'airline', 'air canada', 'westjet', 'flight', 'hotel', 'motel', 'resort', 'vacation', 'trip', 'passport', 'visa fee'],
+  'Home & Garden': ['home depot', 'lowes', 'rona', 'canadian tire', 'ikea', 'home hardware', 'lee valley', 'garden', 'hardware', 'paint', 'furniture', 'decor', 'renovation', 'plumbing', 'electrical', 'appliance', 'tool'],
+  'Personal Care': ['salon', 'spa', 'barber', 'haircut', 'nail', 'beauty', 'sephora', 'lush', 'bath', 'cosmetic', 'skincare', 'wellness', 'gym', 'fitness'],
+  'Gifts & Donations': ['charity', 'donation', 'red cross', 'unicef', 'salvation army', 'food bank', 'gift', 'present', 'birthday', 'wedding'],
+  'Business': ['staples', 'office depot', 'costco business', 'print', 'shipping', 'fedex', 'ups', 'canada post', 'usps', 'courier', 'freelance', 'consulting', 'software', 'hosting', 'domain', 'advertising', 'marketing'],
+};
+
+function detectCategory(storeName: string, items: ExtractedItem[]): string {
+  const searchText = [storeName, ...items.map(i => i.item_name)].join(' ').toLowerCase();
+
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    for (const keyword of keywords) {
+      if (searchText.includes(keyword.trim().toLowerCase())) {
+        return category;
+      }
+    }
+  }
+  return 'Other';
+}
+
 // Parse OCR text to extract receipt data
-function parseReceiptText(text: string): ExtractedData {
+function parseReceiptText(text: string): { data: ExtractedData; autoCategory: string } {
   const todayStr = new Date().toISOString().split('T')[0];
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
@@ -70,11 +99,8 @@ function parseReceiptText(text: string): ExtractedData {
   let total = 0;
   const items: ExtractedItem[] = [];
 
-  // Common store name patterns (usually first meaningful line)
-  const storePatterns = [
-    /^(.+?(?:store|market|mart|shop|inc|llc|co\.?|ltd))/i,
-    /^(.+?)\s{2,}/,  // Line with multiple spaces (often store name + address)
-  ];
+  // Price pattern: $XX.XX or XX.XX
+  const pricePattern = /\$?(\d+\.\d{2})/g;
 
   // Date patterns
   const datePatterns = [
@@ -83,9 +109,6 @@ function parseReceiptText(text: string): ExtractedData {
     /(\d{1,2}\/\d{1,2}\/\d{2,4})/,
     /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2},?\s*\d{4}/i,
   ];
-
-  // Price pattern: $XX.XX or XX.XX
-  const pricePattern = /\$?(\d+\.\d{2})/g;
 
   // Total patterns (look for keywords)
   const totalKeywords = ['total', 'amount', 'grand total', 'balance', 'sum'];
@@ -161,13 +184,16 @@ function parseReceiptText(text: string): ExtractedData {
   }
 
   return {
-    store_name: store_name || 'Unknown Store',
-    receipt_date,
-    subtotal: Math.round(subtotal * 100) / 100,
-    tax: Math.round(tax * 100) / 100,
-    total: Math.round(total * 100) / 100,
-    items: items.slice(0, 20), // Limit to 20 items
-    raw_text: text,
+    data: {
+      store_name: store_name || 'Unknown Store',
+      receipt_date,
+      subtotal: Math.round(subtotal * 100) / 100,
+      tax: Math.round(tax * 100) / 100,
+      total: Math.round(total * 100) / 100,
+      items: items.slice(0, 20),
+      raw_text: text,
+    },
+    autoCategory: detectCategory(store_name, items),
   };
 }
 
@@ -235,9 +261,10 @@ export default function ScanReceiptPage() {
 
       if (rawText && rawText.trim().length > 0) {
         // Parse the OCR text to extract receipt data
-        const parsed = parseReceiptText(rawText);
+        const { data: parsed, autoCategory } = parseReceiptText(rawText);
         setEditedData(parsed);
-        toast.success(`Data extracted from receipt: ${parsed.store_name} - ${parsed.items.length} items found`);
+        setCategory(autoCategory);
+        toast.success(`Data extracted: ${parsed.store_name} - ${parsed.items.length} items (Category: ${autoCategory})`);
       } else {
         // No text found, show blank form
         setEditedData({

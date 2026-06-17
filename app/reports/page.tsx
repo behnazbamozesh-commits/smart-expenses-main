@@ -15,7 +15,7 @@ import {
 import { getReportsData, getTransactions, getReceipts } from '@/lib/data';
 import { Transaction, Receipt } from '@/lib/supabase';
 import { format, subMonths, startOfMonth } from 'date-fns';
-import { Download, TrendingUp, TrendingDown, DollarSign, PieChart, BarChart3 } from 'lucide-react';
+import { Download, TrendingUp, TrendingDown, DollarSign, ChartPie as PieChart, ChartBar as BarChart3 } from 'lucide-react';
 import {
   ChartContainer,
   ChartTooltip,
@@ -36,6 +36,7 @@ import {
 } from 'recharts';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { T2125TaxSummary } from '@/components/reports/T2125TaxSummary';
 
 const COLORS = [
   '#10b981', // emerald
@@ -286,6 +287,9 @@ export default function ReportsPage() {
                 <TabsTrigger value="trends" className="data-[state=active]:bg-emerald-600">
                   Trends
                 </TabsTrigger>
+                <TabsTrigger value="tax" className="data-[state=active]:bg-emerald-600">
+                  Tax (T2125)
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="space-y-6">
@@ -457,6 +461,10 @@ export default function ReportsPage() {
                     </div>
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              <TabsContent value="tax" className="space-y-6">
+                <T2125TaxSummary transactions={transactions} />
               </TabsContent>
             </Tabs>
           </>

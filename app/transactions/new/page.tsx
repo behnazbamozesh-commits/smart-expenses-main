@@ -9,15 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/lib/supabase';
 import { createTransaction } from '@/lib/data';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CircleAlert as AlertCircle } from 'lucide-react';
@@ -31,19 +23,16 @@ export default function NewTransactionPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [type, setType] = useState<'income' | 'expense'>('expense');
-  const [transactionType, setTransactionType] = useState<'all' | 'business' | 'personal'>('personal');
+  const [transactionType, setTransactionType] = useState<'personal' | 'business'>('personal');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [description, setDescription] = useState('');
-
-  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!amount || !category || !date) {
+    if (!amount || !date) {
       setError('Please fill in all required fields');
       return;
     }
@@ -58,6 +47,9 @@ export default function NewTransactionPage() {
 
     try {
       if (!user) throw new Error('User not authenticated');
+
+      // Auto-assign category based on account type
+      const category = transactionType === 'business' ? 'Business' : 'Personal';
 
       await createTransaction({
         user_id: user.id,
@@ -114,10 +106,7 @@ export default function NewTransactionPage() {
                 <Label className="text-slate-300">{isRTL ? 'نوع تراکنش' : 'Transaction Type'}</Label>
                 <RadioGroup
                   value={type}
-                  onValueChange={(v) => {
-                    setType(v as 'income' | 'expense');
-                    setCategory('');
-                  }}
+                  onValueChange={(v) => setType(v as 'income' | 'expense')}
                   className="flex gap-4"
                 >
                   <div className="flex items-center space-x-2">
@@ -132,7 +121,7 @@ export default function NewTransactionPage() {
               </div>
 
               <div className="space-y-3">
-                <Label className="text-slate-300">{isRTL ? 'نوع حساب' : 'Account Type'}</Label>
+                <Label className="text-slate-300">{isRTL ? 'نوع حساب' : 'Account Type'} <span className="text-red-400">*</span></Label>
                 <RadioGroup
                   value={transactionType}
                   onValueChange={(v) => setTransactionType(v as typeof transactionType)}
@@ -140,7 +129,7 @@ export default function NewTransactionPage() {
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="personal" id="personal" className="border-slate-600 text-emerald-500" />
-                    <Label htmlFor="personal" className="text-slate-300 cursor-pointer">{isRTL ? 'خانواده' : 'Family'}</Label>
+                    <Label htmlFor="personal" className="text-slate-300 cursor-pointer">{isRTL ? 'خانواده (شخصی)' : 'Family (Personal)'}</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="business" id="business" className="border-slate-600 text-emerald-500" />
@@ -181,24 +170,6 @@ export default function NewTransactionPage() {
                     className="bg-slate-900/50 border-slate-600 text-white focus:border-emerald-500"
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="category" className="text-slate-300">
-                  {isRTL ? 'دسته‌بندی' : 'Category'} <span className="text-red-400">*</span>
-                </Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="bg-slate-900/50 border-slate-600 text-white focus:border-emerald-500">
-                    <SelectValue placeholder={isRTL ? 'دسته‌بندی را انتخاب کنید' : 'Select a category'} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700">
-                    {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat} className="text-white hover:bg-slate-700">
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
               <div className="space-y-2">

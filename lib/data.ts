@@ -21,17 +21,19 @@ export async function getDashboardData(userId: string) {
     const totalExpenses = thisMonth.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
     const netProfit = totalIncome - totalExpenses;
 
-    const expensesByCategory: Record<string, number> = {};
-    thisMonth.filter((t) => t.type === 'expense').forEach((t) => {
-      expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + Number(t.amount);
-    });
-    const largestEntry = Object.entries(expensesByCategory).sort(([, a], [, b]) => b - a)[0];
+    // Calculate by account type (Personal/Business)
+    const personalExpenses = thisMonth.filter((t) => t.type === 'expense' && (t.transaction_type === 'personal' || t.category === 'Personal')).reduce((s, t) => s + Number(t.amount), 0);
+    const businessExpenses = thisMonth.filter((t) => t.type === 'expense' && (t.transaction_type === 'business' || t.category === 'Business')).reduce((s, t) => s + Number(t.amount), 0);
 
     return {
       totalIncome,
       totalExpenses,
       netProfit,
-      largestCategory: largestEntry ? { category: largestEntry[0], amount: largestEntry[1] } : null,
+      personalExpenses,
+      businessExpenses,
+      largestCategory: businessExpenses > personalExpenses
+        ? { category: 'Business', amount: businessExpenses }
+        : { category: 'Personal', amount: personalExpenses },
       recentTransactions: [...DEMO_TRANSACTIONS].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5),
     };
   }
@@ -40,29 +42,36 @@ export async function getDashboardData(userId: string) {
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
 
-  const [transactionsResult, categoryResult] = await Promise.all([
-    supabase.from('transactions').select('*').eq('user_id', userId).gte('date', monthStart.toISOString()).lte('date', monthEnd.toISOString()).order('date', { ascending: false }),
-    supabase.from('transactions').select('category, amount').eq('user_id', userId).eq('type', 'expense').gte('date', monthStart.toISOString()).lte('date', monthEnd.toISOString()),
-  ]);
+  const transactionsResult = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('date', monthStart.toISOString())
+    .lte('date', monthEnd.toISOString())
+    .order('date', { ascending: false });
 
   const transactions = transactionsResult.data || [];
-  const categoryData = categoryResult.data || [];
 
   const totalIncome = transactions.filter((t) => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
   const totalExpenses = transactions.filter((t) => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
   const netProfit = totalIncome - totalExpenses;
 
-  const expensesByCategory: Record<string, number> = {};
-  categoryData.forEach((item) => {
-    expensesByCategory[item.category] = (expensesByCategory[item.category] || 0) + Number(item.amount);
-  });
-  const largestCategory = Object.entries(expensesByCategory).sort(([, a], [, b]) => b - a)[0];
+  const personalExpenses = transactions
+    .filter((t) => t.type === 'expense' && (t.transaction_type === 'personal' || t.category === 'Personal'))
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const businessExpenses = transactions
+    .filter((t) => t.type === 'expense' && (t.transaction_type === 'business' || t.category === 'Business'))
+    .reduce((s, t) => s + Number(t.amount), 0);
 
   return {
     totalIncome,
     totalExpenses,
     netProfit,
-    largestCategory: largestCategory ? { category: largestCategory[0], amount: largestCategory[1] } : null,
+    personalExpenses,
+    businessExpenses,
+    largestCategory: businessExpenses > personalExpenses
+      ? { category: 'Business', amount: businessExpenses }
+      : { category: 'Personal', amount: personalExpenses },
     recentTransactions: transactions.slice(0, 5),
   };
 }
@@ -97,7 +106,7 @@ export async function createTransaction(transaction: {
   description?: string;
   source?: 'manual' | 'receipt';
   receipt_id?: string;
-  transaction_type?: 'all' | 'business' | 'personal';
+  transaction_type?: 'personal' | 'business';
 }) {
   if (isDemo(transaction.user_id)) {
     const newTx: Transaction = {
@@ -234,25 +243,35 @@ export async function getReportsData(userId: string, months: number = 6) {
     const startDate = subMonths(startOfMonth(now), months - 1);
     const data = DEMO_TRANSACTIONS.filter((t) => new Date(t.date) >= startDate).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    const monthlyData: Record<string, { income: number; expenses: number; profit: number }> = {};
+    const monthlyData: Record<string, { income: number; expenses: number; profit: number; personalExpenses: number; businessExpenses: number }> = {};
     data.forEach((t) => {
       const month = format(new Date(t.date), 'MMM yyyy');
-      if (!monthlyData[month]) monthlyData[month] = { income: 0, expenses: 0, profit: 0 };
+      if (!monthlyData[month]) monthlyData[month] = { income: 0, expenses: 0, profit: 0, personalExpenses: 0, businessExpenses: 0 };
       if (t.type === 'income') monthlyData[month].income += Number(t.amount);
-      else monthlyData[month].expenses += Number(t.amount);
+      else {
+        monthlyData[month].expenses += Number(t.amount);
+        if (t.transaction_type === 'personal' || t.category === 'Personal') {
+          monthlyData[month].personalExpenses += Number(t.amount);
+        } else if (t.transaction_type === 'business' || t.category === 'Business') {
+          monthlyData[month].businessExpenses += Number(t.amount);
+        }
+      }
       monthlyData[month].profit = monthlyData[month].income - monthlyData[month].expenses;
     });
 
-    const categoryData: Record<string, number> = {};
-    data.filter((t) => t.type === 'expense').forEach((t) => {
-      categoryData[t.category] = (categoryData[t.category] || 0) + Number(t.amount);
-    });
+    // Group by account type (Personal/Business)
+    const accountData: Record<string, number> = {
+      'Personal': data.filter((t) => t.type === 'expense' && (t.transaction_type === 'personal' || t.category === 'Personal')).reduce((s, t) => s + Number(t.amount), 0),
+      'Business': data.filter((t) => t.type === 'expense' && (t.transaction_type === 'business' || t.category === 'Business')).reduce((s, t) => s + Number(t.amount), 0),
+    };
 
     return {
       monthlyData,
-      categoryData,
+      categoryData: accountData,
       totalIncome: data.filter((t) => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0),
       totalExpenses: data.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0),
+      personalExpenses: accountData['Personal'],
+      businessExpenses: accountData['Business'],
     };
   }
 
@@ -261,24 +280,34 @@ export async function getReportsData(userId: string, months: number = 6) {
   const { data, error } = await supabase.from('transactions').select('*').eq('user_id', userId).gte('date', startDate.toISOString()).order('date', { ascending: true });
   if (error) throw error;
 
-  const monthlyData: Record<string, { income: number; expenses: number; profit: number }> = {};
+  const monthlyData: Record<string, { income: number; expenses: number; profit: number; personalExpenses: number; businessExpenses: number }> = {};
   data.forEach((transaction) => {
     const month = format(new Date(transaction.date), 'MMM yyyy');
-    if (!monthlyData[month]) monthlyData[month] = { income: 0, expenses: 0, profit: 0 };
+    if (!monthlyData[month]) monthlyData[month] = { income: 0, expenses: 0, profit: 0, personalExpenses: 0, businessExpenses: 0 };
     if (transaction.type === 'income') monthlyData[month].income += Number(transaction.amount);
-    else monthlyData[month].expenses += Number(transaction.amount);
+    else {
+      monthlyData[month].expenses += Number(transaction.amount);
+      if (transaction.transaction_type === 'personal' || transaction.category === 'Personal') {
+        monthlyData[month].personalExpenses += Number(transaction.amount);
+      } else if (transaction.transaction_type === 'business' || transaction.category === 'Business') {
+        monthlyData[month].businessExpenses += Number(transaction.amount);
+      }
+    }
     monthlyData[month].profit = monthlyData[month].income - monthlyData[month].expenses;
   });
 
-  const categoryData: Record<string, number> = {};
-  data.filter((t) => t.type === 'expense').forEach((t) => {
-    categoryData[t.category] = (categoryData[t.category] || 0) + Number(t.amount);
-  });
+  // Group by account type (Personal/Business)
+  const accountData: Record<string, number> = {
+    'Personal': data.filter((t) => t.type === 'expense' && (t.transaction_type === 'personal' || t.category === 'Personal')).reduce((s, t) => s + Number(t.amount), 0),
+    'Business': data.filter((t) => t.type === 'expense' && (t.transaction_type === 'business' || t.category === 'Business')).reduce((s, t) => s + Number(t.amount), 0),
+  };
 
   return {
     monthlyData,
-    categoryData,
+    categoryData: accountData,
     totalIncome: data.filter((t) => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0),
     totalExpenses: data.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0),
+    personalExpenses: accountData['Personal'],
+    businessExpenses: accountData['Business'],
   };
 }

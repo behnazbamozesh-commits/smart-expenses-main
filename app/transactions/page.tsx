@@ -14,10 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Transaction, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/lib/supabase';
+import { Transaction } from '@/lib/supabase';
 import { getTransactions, deleteTransaction } from '@/lib/data';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { ArrowUpRight, ArrowDownRight, Search, Plus, Trash2, Edit } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Search, Plus, Trash2, CreditCard as Edit } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {

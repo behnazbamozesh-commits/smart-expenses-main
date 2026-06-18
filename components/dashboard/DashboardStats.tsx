@@ -22,10 +22,12 @@ export function DashboardStats({ transactions }: DashboardStatsProps) {
     }).format(amount);
   };
 
-  // Filter transactions based on selected type
+  // Filter transactions based on selected account type (Personal/Business)
   const filteredTransactions = transactions.filter((tx) => {
     if (filterType === 'all') return true;
-    return tx.transaction_type === filterType || tx.transaction_type === 'all';
+    if (filterType === 'personal') return tx.transaction_type === 'personal' || tx.category === 'Personal';
+    if (filterType === 'business') return tx.transaction_type === 'business' || tx.category === 'Business';
+    return true;
   });
 
   // Calculate stats from filtered transactions
@@ -39,15 +41,18 @@ export function DashboardStats({ transactions }: DashboardStatsProps) {
 
   const netProfit = totalIncome - totalExpenses;
 
-  // Find largest expense category
-  const expensesByCategory: Record<string, number> = {};
-  filteredTransactions
-    .filter((tx) => tx.type === 'expense')
-    .forEach((tx) => {
-      expensesByCategory[tx.category] = (expensesByCategory[tx.category] || 0) + Number(tx.amount);
-    });
+  // Calculate breakdown by account type for the "largest category" display
+  const personalExpenses = transactions
+    .filter((tx) => tx.type === 'expense' && (tx.transaction_type === 'personal' || tx.category === 'Personal'))
+    .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
-  const largestCategory = Object.entries(expensesByCategory).sort(([, a], [, b]) => b - a)[0];
+  const businessExpenses = transactions
+    .filter((tx) => tx.type === 'expense' && (tx.transaction_type === 'business' || tx.category === 'Business'))
+    .reduce((sum, tx) => sum + Number(tx.amount), 0);
+
+  const largestCategory = businessExpenses > personalExpenses
+    ? ['Business', businessExpenses]
+    : ['Personal', personalExpenses];
 
   const filterButtons = [
     { key: 'all' as const, icon: Wallet, label: isRTL ? 'همه' : 'All' },
@@ -81,9 +86,9 @@ export function DashboardStats({ transactions }: DashboardStatsProps) {
       trend: netProfit >= 0 ? 'up' : 'down',
     },
     {
-      title: t('largestExpense'),
-      value: largestCategory ? largestCategory[0] : 'N/A',
-      subValue: largestCategory ? formatCurrency(largestCategory[1]) : undefined,
+      title: isRTL ? 'بیشترین هزینه' : 'Top Spending',
+      value: largestCategory[0],
+      subValue: formatCurrency(largestCategory[1] as number),
       icon: PieChart,
       iconColor: 'text-amber-400',
       bgIconColor: 'bg-amber-400/10',

@@ -7,14 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { EXPENSE_CATEGORIES } from '@/lib/supabase';
 import { createReceipt, createReceiptItem, createTransaction } from '@/lib/data';
 import { useRouter } from 'next/navigation';
 import { Upload, ArrowLeft, Loader as Loader2, Check, X, FileText, Plus, Trash2, ScanText } from 'lucide-react';
@@ -84,11 +76,11 @@ function detectCategory(storeName: string, items: ExtractedItem[]): string {
       }
     }
   }
-  return 'Other';
+  return 'Personal'; // Default to Personal instead of Other
 }
 
 // Parse OCR text to extract receipt data
-function parseReceiptText(text: string): { data: ExtractedData; autoCategory: string } {
+function parseReceiptText(text: string): { data: ExtractedData } {
   const todayStr = new Date().toISOString().split('T')[0];
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
@@ -193,7 +185,6 @@ function parseReceiptText(text: string): { data: ExtractedData; autoCategory: st
       items: items.slice(0, 20),
       raw_text: text,
     },
-    autoCategory: detectCategory(store_name, items),
   };
 }
 
@@ -209,7 +200,7 @@ export default function ScanReceiptPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [editedData, setEditedData] = useState<ExtractedData | null>(null);
-  const [category, setCategory] = useState<string>('');
+  const [accountType, setAccountType] = useState<'personal' | 'business'>('personal');
 
   const handleFileSelect = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -261,10 +252,9 @@ export default function ScanReceiptPage() {
 
       if (rawText && rawText.trim().length > 0) {
         // Parse the OCR text to extract receipt data
-        const { data: parsed, autoCategory } = parseReceiptText(rawText);
+        const { data: parsed } = parseReceiptText(rawText);
         setEditedData(parsed);
-        setCategory(autoCategory);
-        toast.success(`Data extracted: ${parsed.store_name} - ${parsed.items.length} items (Category: ${autoCategory})`);
+        toast.success(`Data extracted: ${parsed.store_name} - ${parsed.items.length} items`);
       } else {
         // No text found, show blank form
         setEditedData({
@@ -319,7 +309,6 @@ export default function ScanReceiptPage() {
 
   const handleSave = async () => {
     if (!editedData || !user) return;
-    if (!category) { toast.error('Please select a category'); return; }
     if (!editedData.total || editedData.total <= 0) { toast.error('Please enter a valid total'); return; }
 
     setSaving(true);
@@ -347,6 +336,9 @@ export default function ScanReceiptPage() {
         }
       }
 
+      // Auto-assign category based on account type
+      const category = accountType === 'business' ? 'Business' : 'Personal';
+
       await createTransaction({
         user_id: user.id,
         type: 'expense',
@@ -356,6 +348,7 @@ export default function ScanReceiptPage() {
         description: editedData.store_name || 'Receipt',
         source: 'receipt',
         receipt_id: receipt.id,
+        transaction_type: accountType,
       });
 
       toast.success('Receipt saved successfully');
@@ -567,18 +560,32 @@ export default function ScanReceiptPage() {
 
                 <div className="space-y-1.5">
                   <Label className="text-slate-300">
-                    Category <span className="text-red-400">*</span>
+                    Account Type <span className="text-red-400">*</span>
                   </Label>
-                  <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger className="bg-slate-900/50 border-slate-600 text-white focus:border-emerald-500">
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700">
-                      {EXPENSE_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setAccountType('personal')}
+                      className={`flex-1 py-2 px-4 rounded-lg border transition-colors ${
+                        accountType === 'personal'
+                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                          : 'border-slate-600 bg-slate-900/50 text-slate-400 hover:border-slate-500'
+                      }`}
+                    >
+                      Family (Personal)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAccountType('business')}
+                      className={`flex-1 py-2 px-4 rounded-lg border transition-colors ${
+                        accountType === 'business'
+                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                          : 'border-slate-600 bg-slate-900/50 text-slate-400 hover:border-slate-500'
+                      }`}
+                    >
+                      Business
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex gap-3 pt-2">

@@ -8,19 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Transaction, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/lib/supabase';
+import { Transaction } from '@/lib/supabase';
 import { getTransactions, updateTransaction, deleteTransaction } from '@/lib/data';
 import { useRouter } from 'next/navigation';
 import { use } from 'react';
-import { ArrowLeft, AlertCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, CircleAlert as AlertCircle, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
@@ -44,8 +37,8 @@ export default function EditTransactionPage({ params }: { params: Promise<{ id: 
   const [error, setError] = useState<string | null>(null);
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [type, setType] = useState<'income' | 'expense'>('expense');
+  const [accountType, setAccountType] = useState<'personal' | 'business'>('personal');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
   const [date, setDate] = useState('');
   const [description, setDescription] = useState('');
 
@@ -64,7 +57,8 @@ export default function EditTransactionPage({ params }: { params: Promise<{ id: 
         setTransaction(found);
         setType(found.type);
         setAmount(found.amount.toString());
-        setCategory(found.category);
+        // Set account type from transaction_type or infer from category
+        setAccountType(found.transaction_type === 'business' || found.category === 'Business' ? 'business' : 'personal');
         setDate(found.date);
         setDescription(found.description || '');
       } else {
@@ -79,13 +73,11 @@ export default function EditTransactionPage({ params }: { params: Promise<{ id: 
     }
   };
 
-  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!amount || !category || !date) {
+    if (!amount || !date) {
       setError('Please fill in all required fields');
       return;
     }
@@ -99,12 +91,16 @@ export default function EditTransactionPage({ params }: { params: Promise<{ id: 
     setSaving(true);
 
     try {
+      // Auto-assign category based on account type
+      const category = accountType === 'business' ? 'Business' : 'Personal';
+
       await updateTransaction(id, {
         type,
         amount: amountNum,
         category,
         date,
         description: description || null,
+        transaction_type: accountType,
       });
 
       toast.success('Transaction updated successfully');
@@ -208,10 +204,7 @@ export default function EditTransactionPage({ params }: { params: Promise<{ id: 
                 <Label className="text-slate-300">Transaction Type</Label>
                 <RadioGroup
                   value={type}
-                  onValueChange={(v) => {
-                    setType(v as 'income' | 'expense');
-                    setCategory('');
-                  }}
+                  onValueChange={(v) => setType(v as 'income' | 'expense')}
                   className="flex gap-4"
                 >
                   <div className="flex items-center space-x-2">
@@ -221,6 +214,24 @@ export default function EditTransactionPage({ params }: { params: Promise<{ id: 
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="income" id="income" className="border-slate-600 text-emerald-500" />
                     <Label htmlFor="income" className="text-slate-300 cursor-pointer">Income</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-slate-300">Account Type <span className="text-red-400">*</span></Label>
+                <RadioGroup
+                  value={accountType}
+                  onValueChange={(v) => setAccountType(v as typeof accountType)}
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="personal" id="personal" className="border-slate-600 text-emerald-500" />
+                    <Label htmlFor="personal" className="text-slate-300 cursor-pointer">Family (Personal)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="business" id="business" className="border-slate-600 text-emerald-500" />
+                    <Label htmlFor="business" className="text-slate-300 cursor-pointer">Business</Label>
                   </div>
                 </RadioGroup>
               </div>
@@ -257,24 +268,6 @@ export default function EditTransactionPage({ params }: { params: Promise<{ id: 
                     className="bg-slate-900/50 border-slate-600 text-white focus:border-emerald-500"
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="category" className="text-slate-300">
-                  Category <span className="text-red-400">*</span>
-                </Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="bg-slate-900/50 border-slate-600 text-white focus:border-emerald-500">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700">
-                    {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat} className="text-white hover:bg-slate-700">
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
               <div className="space-y-2">

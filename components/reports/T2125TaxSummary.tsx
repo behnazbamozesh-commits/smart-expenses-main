@@ -11,25 +11,6 @@ import { Separator } from '@/components/ui/separator';
 import { CircleHelp as HelpCircle, Landmark, Copy, Check } from 'lucide-react';
 import { Transaction } from '@/lib/supabase';
 
-// T2125 expense category mapping
-const T2125_CATEGORIES: { code: string; labelEn: string; labelFa: string; matchedCategories: string[] }[] = [
-  { code: '8520', labelEn: 'Advertising', labelFa: 'تبلیغات', matchedCategories: ['Business', 'Shopping'] },
-  { code: '8730', labelEn: 'Internet & Telecommunications', labelFa: 'اینترنت و مخابرات', matchedCategories: ['Bills & Utilities'] },
-  { code: '8810', labelEn: 'Office Supplies & Expenses', labelFa: 'لوازم و هزینه‌های اداری', matchedCategories: ['Business', 'Shopping', 'Education'] },
-  { code: '8510', labelEn: 'Meals & Entertainment', labelFa: 'غذا و سرگرمی', matchedCategories: ['Food & Dining', 'Entertainment'] },
-  { code: '8740', labelEn: 'Transportation & Delivery', labelFa: 'حمل‌ونقل و تحویل', matchedCategories: ['Transportation'] },
-  { code: '8760', labelEn: 'Travel', labelFa: 'سفر', matchedCategories: ['Travel'] },
-  { code: '8660', labelEn: 'Insurance', labelFa: 'بیمه', matchedCategories: ['Bills & Utilities', 'Healthcare'] },
-  { code: '8620', labelEn: 'Professional Fees', labelFa: 'هزینه‌های حرفه‌ای', matchedCategories: ['Healthcare', 'Education'] },
-  { code: '8710', labelEn: 'Rent', labelFa: 'اجاره', matchedCategories: ['Bills & Utilities', 'Home & Garden'] },
-  { code: '8870', labelEn: 'Capital Cost Allowance (CCA)', labelFa: 'کاهش هزینه سرمایه', matchedCategories: [] },
-  { code: '8850', labelEn: 'Maintenance & Repairs', labelFa: 'نگهداری و تعمیرات', matchedCategories: ['Home & Garden'] },
-  { code: '8640', labelEn: 'Salaries, Wages & Benefits', labelFa: 'حقوق و مزایا', matchedCategories: ['Business'] },
-  { code: '8782', labelEn: 'Property Taxes', labelFa: 'مالیات املاک', matchedCategories: ['Bills & Utilities'] },
-  { code: '8765', labelEn: 'Utilities (Heat, Light, Water)', labelFa: 'خدمات (گرما، برق، آب)', matchedCategories: ['Bills & Utilities'] },
-  { code: '8899', labelEn: 'Other Expenses', labelFa: 'سایر هزینه‌ها', matchedCategories: ['Personal Care', 'Gifts & Donations', 'Other'] },
-];
-
 interface T2125TaxSummaryProps {
   transactions: Transaction[];
 }
@@ -42,28 +23,18 @@ export function T2125TaxSummary({ transactions }: T2125TaxSummaryProps) {
   const yearStart = `${currentYear}-01-01`;
   const yearEnd = `${currentYear}-12-31`;
 
-  // Filter business transactions for current year
+  // Filter business transactions for current year (for T2125 tax purposes)
   const businessTransactions = useMemo(() =>
     transactions.filter(t =>
       t.type === 'expense' &&
-      (t.transaction_type === 'business' || t.transaction_type === 'all') &&
+      (t.transaction_type === 'business' || t.category === 'Business') &&
       t.date >= yearStart &&
       t.date <= yearEnd
     ),
     [transactions, yearStart, yearEnd]
   );
 
-  // Also include all expense transactions (for users who don't distinguish)
-  const allExpenses = useMemo(() =>
-    transactions.filter(t =>
-      t.type === 'expense' &&
-      t.date >= yearStart &&
-      t.date <= yearEnd
-    ),
-    [transactions, yearStart, yearEnd]
-  );
-
-  // Calculate total income
+  // Calculate total income from all sources
   const totalIncome = useMemo(() => {
     const incomeTx = transactions.filter(t =>
       t.type === 'income' &&
@@ -73,26 +44,27 @@ export function T2125TaxSummary({ transactions }: T2125TaxSummaryProps) {
     return incomeTx.reduce((sum, t) => sum + Number(t.amount), 0);
   }, [transactions, yearStart, yearEnd]);
 
-  // Use business transactions if available, otherwise fall back to all
-  const expenseSource = businessTransactions.length > 0 ? businessTransactions : allExpenses;
+  // Calculate total business income
+  const businessIncome = useMemo(() => {
+    const incomeTx = transactions.filter(t =>
+      t.type === 'income' &&
+      (t.transaction_type === 'business' || t.category === 'Business') &&
+      t.date >= yearStart &&
+      t.date <= yearEnd
+    );
+    return incomeTx.reduce((sum, t) => sum + Number(t.amount), 0);
+  }, [transactions, yearStart, yearEnd]);
 
-  // Map expenses to T2125 categories
-  const t2125Data = useMemo(() => {
-    return T2125_CATEGORIES.map(cat => {
-      const matched = expenseSource.filter(t =>
-        cat.matchedCategories.includes(t.category)
-      );
-      const total = matched.reduce((sum, t) => sum + Number(t.amount), 0);
-      return {
-        ...cat,
-        amount: total,
-        count: matched.length,
-      };
-    }).filter(c => c.amount > 0 || c.code === '8899'); // Always show Other
-  }, [expenseSource]);
+  // For T2125, use all business expenses. Since category is now "Business" or "Personal",
+  // we'll show total business expenses under "Other Expenses" (8899) with a note
+  const totalBusinessExpenses = businessTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
 
-  const totalExpenses = t2125Data.reduce((sum, c) => sum + c.amount, 0);
-  const netIncome = totalIncome - totalExpenses;
+  // Simple T2125 data - just show total under Other Expenses since we don't have detailed categories
+  const t2125Data = [
+    { code: '8899', labelEn: 'Total Business Expenses', labelFa: 'مجموع هزینه‌های کسب‌وکار', amount: totalBusinessExpenses },
+  ];
+
+  const netIncome = businessIncome - totalBusinessExpenses;
 
   const formatCurrency = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
@@ -114,8 +86,8 @@ export function T2125TaxSummary({ transactions }: T2125TaxSummaryProps) {
             </CardTitle>
             <CardDescription className="text-slate-400 mt-1">
               {isRTL
-                ? `خلاصه هزینه‌های خوداشتغالی برای سال ${currentYear} - فرم CRA`
-                : `Self-employment expense summary for ${currentYear} — CRA Form T2125`}
+                ? `خلاصه هزینه‌های کسب‌وکار برای سال ${currentYear} - فرم CRA`
+                : `Business expense summary for ${currentYear} — CRA Form T2125`}
             </CardDescription>
           </div>
           <TaxFilingGuide />
@@ -125,12 +97,12 @@ export function T2125TaxSummary({ transactions }: T2125TaxSummaryProps) {
         {/* Summary Cards */}
         <div className="grid gap-3 sm:grid-cols-3 mb-6">
           <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-700">
-            <p className="text-xs text-slate-400">{isRTL ? 'کل درآمد' : 'Gross Income'}</p>
-            <p className="text-lg font-bold text-emerald-400">{formatCurrency(totalIncome)}</p>
+            <p className="text-xs text-slate-400">{isRTL ? 'درآمد کسب‌وکار' : 'Business Income'}</p>
+            <p className="text-lg font-bold text-emerald-400">{formatCurrency(businessIncome)}</p>
           </div>
           <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-700">
             <p className="text-xs text-slate-400">{isRTL ? 'کل هزینه‌ها' : 'Total Expenses'}</p>
-            <p className="text-lg font-bold text-red-400">{formatCurrency(totalExpenses)}</p>
+            <p className="text-lg font-bold text-red-400">{formatCurrency(totalBusinessExpenses)}</p>
           </div>
           <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-700">
             <p className="text-xs text-slate-400">{isRTL ? 'درآمد خالص' : 'Net Income'}</p>
@@ -182,26 +154,15 @@ export function T2125TaxSummary({ transactions }: T2125TaxSummaryProps) {
                   </TableCell>
                 </TableRow>
               ))}
-              {/* Totals row */}
-              <TableRow className="border-slate-700 bg-slate-900/50">
-                <TableCell />
-                <TableCell className="text-white font-semibold">
-                  {isRTL ? 'مجموع هزینه‌ها' : 'Total Expenses'}
-                </TableCell>
-                <TableCell className="text-white font-bold text-right">
-                  {formatCurrency(totalExpenses)}
-                </TableCell>
-                <TableCell />
-              </TableRow>
             </TableBody>
           </Table>
         </div>
 
-        {businessTransactions.length === 0 && allExpenses.length > 0 && (
+        {businessTransactions.length === 0 && (
           <p className="text-xs text-amber-400 mt-3">
             {isRTL
-              ? 'توجه: چون هیچ تراکنشی با نوع «کسب‌وکار» ثبت نشده، همه هزینه‌ها نمایش داده شده‌اند. برای دقت بیشتر، نوع حساب را در تراکنش‌ها مشخص کنید.'
-              : 'Note: No business-type transactions found. Showing all expenses. For accuracy, tag transactions as "Business" in the account type filter.'}
+              ? 'توجه: هیچ تراکنشی با نوع «کسب‌وکار» ثبت نشده. برای استفاده از این گزارش، تراکنش‌ها را با Account Type = Business ثبت کنید.'
+              : 'Note: No business transactions found. To use this report, create transactions with Account Type = Business.'}
           </p>
         )}
       </CardContent>

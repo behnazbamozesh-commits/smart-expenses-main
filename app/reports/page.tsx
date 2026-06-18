@@ -55,10 +55,12 @@ export default function ReportsPage() {
   const [exporting, setExporting] = useState(false);
   const [timeRange, setTimeRange] = useState<'3' | '6' | '12'>('6');
   const [reportsData, setReportsData] = useState<{
-    monthlyData: Record<string, { income: number; expenses: number; profit: number }>;
+    monthlyData: Record<string, { income: number; expenses: number; profit: number; personalExpenses: number; businessExpenses: number }>;
     categoryData: Record<string, number>;
     totalIncome: number;
     totalExpenses: number;
+    personalExpenses: number;
+    businessExpenses: number;
   } | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [receipts, setReceipts] = useState<(Receipt & { items?: { item_name: string; quantity: number; price: number }[] })[]>([]);
@@ -164,14 +166,12 @@ export default function ReportsPage() {
       }))
     : [];
 
+  // Category data is now Personal/Business breakdown
   const categoryChartData = reportsData
-    ? Object.entries(reportsData.categoryData)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 8)
-        .map(([category, amount]) => ({
-          category,
-          amount,
-        }))
+    ? [
+        { category: 'Personal (Family)', amount: reportsData.personalExpenses || 0 },
+        { category: 'Business', amount: reportsData.businessExpenses || 0 },
+      ].filter(c => c.amount > 0)
     : [];
 
   const pieChartData = categoryChartData.map((item, index) => ({
@@ -262,15 +262,15 @@ export default function ReportsPage() {
               </Card>
               <Card className="border-slate-700 bg-slate-800/50">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-400">Top Category</CardTitle>
+                  <CardTitle className="text-sm font-medium text-slate-400">Top Spending</CardTitle>
                   <PieChart className="h-4 w-4 text-amber-400" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-white">
-                    {categoryChartData[0]?.category || 'N/A'}
+                    {(reportsData?.businessExpenses || 0) > (reportsData?.personalExpenses || 0) ? 'Business' : 'Personal'}
                   </div>
                   <p className="text-sm text-slate-500">
-                    {categoryChartData[0] ? formatCurrency(categoryChartData[0].amount) : ''}
+                    {formatCurrency(Math.max(reportsData?.businessExpenses || 0, reportsData?.personalExpenses || 0))}
                   </p>
                 </CardContent>
               </Card>
@@ -344,33 +344,39 @@ export default function ReportsPage() {
                     <CardHeader>
                       <CardTitle className="text-white flex items-center gap-2">
                         <PieChart className="h-5 w-5" />
-                        Expenses by Category
+                        Expenses by Account Type
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="h-[300px]">
-                        <ChartContainer
-                          config={{
-                            amount: { label: 'Amount', color: '#10b981' },
-                          }}
-                        >
-                          <RechartsPieChart>
-                            <Pie
-                              data={pieChartData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={60}
-                              outerRadius={100}
-                              paddingAngle={2}
-                              dataKey="amount"
-                            >
-                              {pieChartData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.fill} />
-                              ))}
-                            </Pie>
-                            <ChartTooltip content={<ChartTooltipContent />} />
-                          </RechartsPieChart>
-                        </ChartContainer>
+                        {pieChartData.length > 0 ? (
+                          <ChartContainer
+                            config={{
+                              amount: { label: 'Amount', color: '#10b981' },
+                            }}
+                          >
+                            <RechartsPieChart>
+                              <Pie
+                                data={pieChartData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={100}
+                                paddingAngle={2}
+                                dataKey="amount"
+                              >
+                                {pieChartData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                                ))}
+                              </Pie>
+                              <ChartTooltip content={<ChartTooltipContent />} />
+                            </RechartsPieChart>
+                          </ChartContainer>
+                        ) : (
+                          <div className="flex items-center justify-center h-full text-slate-400">
+                            No expense data available
+                          </div>
+                        )}
                       </div>
                       <div className="grid grid-cols-2 gap-2 mt-4">
                         {pieChartData.map((item, index) => (
@@ -388,11 +394,11 @@ export default function ReportsPage() {
 
                   <Card className="border-slate-700 bg-slate-800/50">
                     <CardHeader>
-                      <CardTitle className="text-white">Category Breakdown</CardTitle>
+                      <CardTitle className="text-white">Personal vs Business</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {categoryChartData.map((item, index) => (
+                        {categoryChartData.length > 0 ? categoryChartData.map((item, index) => (
                           <div key={item.category} className="flex items-center gap-4">
                             <div className="flex-1">
                               <div className="flex items-center justify-between mb-1">
@@ -403,14 +409,18 @@ export default function ReportsPage() {
                                 <div
                                   className="h-full rounded-full transition-all"
                                   style={{
-                                    width: `${(item.amount / (categoryChartData[0]?.amount || 1)) * 100}%`,
+                                    width: `${(item.amount / (Math.max(...categoryChartData.map(c => c.amount)) || 1)) * 100}%`,
                                     backgroundColor: COLORS[index % COLORS.length],
                                   }}
                                 />
                               </div>
                             </div>
                           </div>
-                        ))}
+                        )) : (
+                          <div className="text-center text-slate-400 py-8">
+                            No expense data available
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

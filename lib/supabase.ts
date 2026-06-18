@@ -16,12 +16,12 @@ export type Transaction = {
   user_id: string;
   type: 'income' | 'expense';
   amount: number;
-  category: string;
+  category: string; // 'Personal' or 'Business' based on account type
   date: string;
   description: string | null;
   source: 'manual' | 'receipt';
   receipt_id: string | null;
-  transaction_type: 'all' | 'business' | 'personal';
+  transaction_type: 'personal' | 'business';
   created_at: string;
 };
 
@@ -48,28 +48,6 @@ export type ReceiptItem = {
   price: number;
 };
 
-export const EXPENSE_CATEGORIES = [
-  'Food & Dining',
-  'Transportation',
-  'Shopping',
-  'Entertainment',
-  'Bills & Utilities',
-  'Healthcare',
-  'Education',
-  'Travel',
-  'Home & Garden',
-  'Personal Care',
-  'Gifts & Donations',
-  'Business',
-  'Other',
-] as const;
-
-export const INCOME_CATEGORIES = [
-  'Salary',
-  'Freelance',
-  'Business',
-  'Investments',
-  'Rental',
-  'Gifts',
-  'Other',
-] as const;
+// Account types for Personal/Business categorization
+export const ACCOUNT_TYPES = ['personal', 'business'] as const;
+export type AccountType = typeof ACCOUNT_TYPES[number];

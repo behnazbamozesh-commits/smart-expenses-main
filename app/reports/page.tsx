@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { AppLayout } from '@/components/app';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +16,7 @@ import {
 import { getReportsData, getTransactions, getReceipts } from '@/lib/data';
 import { Transaction, Receipt } from '@/lib/supabase';
 import { format, subMonths, startOfMonth } from 'date-fns';
-import { Download, TrendingUp, TrendingDown, DollarSign, ChartPie as PieChart, ChartBar as BarChart3 } from 'lucide-react';
+import { Download, TrendingUp, TrendingDown, DollarSign, ChartPie as PieChart, ChartBar as BarChart3, CircleCheck as CheckCircle2 } from 'lucide-react';
 import {
   ChartContainer,
   ChartTooltip,
@@ -32,11 +33,11 @@ import {
   Pie,
   PieChart as RechartsPieChart,
   Cell,
-  ResponsiveContainer,
 } from 'recharts';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { T2125TaxSummary } from '@/components/reports/T2125TaxSummary';
+import { ReportsSkeleton } from '@/components/ui/skeleton-loader';
+import { toast } from 'sonner';
 
 const COLORS = [
   '#10b981', // emerald
@@ -51,6 +52,7 @@ const COLORS = [
 
 export default function ReportsPage() {
   const { user } = useAuth();
+  const { t, isRTL } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [timeRange, setTimeRange] = useState<'3' | '6' | '12'>('6');
@@ -102,14 +104,15 @@ export default function ReportsPage() {
     setExporting(true);
     try {
       // Create CSV content for transactions
-      const transactionHeaders = ['Date', 'Type', 'Category', 'Amount', 'Description', 'Source'];
-      const transactionRows = transactions.map((t) => [
-        t.date,
-        t.type,
-        t.category,
-        t.amount.toString(),
-        t.description || '',
-        t.source,
+      const transactionHeaders = ['Date', 'Type', 'Account', 'Category', 'Amount', 'Description', 'Source'];
+      const transactionRows = transactions.map((tx) => [
+        tx.date,
+        tx.type,
+        tx.transaction_type || 'personal',
+        tx.category,
+        tx.amount.toString(),
+        tx.description || '',
+        tx.source,
       ]);
 
       const transactionsCSV = [
@@ -150,8 +153,14 @@ export default function ReportsPage() {
       rctLink.download = `receipts_${format(new Date(), 'yyyy-MM-dd')}.csv`;
       rctLink.click();
       URL.revokeObjectURL(rctUrl);
+
+      toast.success(isRTL ? 'خروجی با موفقیت انجام شد' : 'Data exported successfully!', {
+        icon: <CheckCircle2 className="h-4 w-4 text-emerald-500" />,
+        description: isRTL ? `${transactions.length} تراکنش و ${receipts.length} رسید دانلود شد` : `${transactions.length} transactions and ${receipts.length} receipts downloaded`,
+      });
     } catch (error) {
       console.error('Export error:', error);
+      toast.error(isRTL ? 'خطا در خروجی' : 'Export failed');
     } finally {
       setExporting(false);
     }
@@ -181,40 +190,29 @@ export default function ReportsPage() {
 
   if (loading) {
     return (
-      <AppLayout title="Reports">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <Skeleton className="h-8 w-48 bg-slate-700" />
-            <Skeleton className="h-10 w-32 bg-slate-700" />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-28 rounded-lg bg-slate-800" />
-            ))}
-          </div>
-          <Skeleton className="h-96 rounded-lg bg-slate-800" />
-        </div>
+      <AppLayout title={t('reports')}>
+        <ReportsSkeleton />
       </AppLayout>
     );
   }
 
   return (
-    <AppLayout title="Reports">
+    <AppLayout title={t('reports')}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">Reports & Analytics</h1>
-            <p className="text-slate-400 mt-1">View your financial insights</p>
+            <h1 className={`text-2xl font-bold text-white ${isRTL ? 'font-vazir' : ''}`}>{t('reportsAndAnalytics')}</h1>
+            <p className={`text-slate-400 mt-1 ${isRTL ? 'font-vazir' : ''}`}>{t('viewFinancialInsights')}</p>
           </div>
           <div className="flex items-center gap-3">
             <Select value={timeRange} onValueChange={(v) => setTimeRange(v as typeof timeRange)}>
               <SelectTrigger className="w-[150px] bg-slate-800 border-slate-700 text-white">
-                <SelectValue placeholder="Time Range" />
+                <SelectValue placeholder={t('timeRange')} />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700">
-                <SelectItem value="3">Last 3 months</SelectItem>
-                <SelectItem value="6">Last 6 months</SelectItem>
-                <SelectItem value="12">Last 12 months</SelectItem>
+                <SelectItem value="3">{t('last3MonthsOpt')}</SelectItem>
+                <SelectItem value="6">{t('last6MonthsOpt')}</SelectItem>
+                <SelectItem value="12">{t('last12MonthsOpt')}</SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -223,7 +221,7 @@ export default function ReportsPage() {
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               <Download className="h-4 w-4 mr-2" />
-              {exporting ? 'Exporting...' : 'Export CSV'}
+              {exporting ? t('exporting') : t('exportCsv')}
             </Button>
           </div>
         </div>

@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { AppLayout } from '@/components/app';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -17,7 +18,7 @@ import {
 import { Transaction } from '@/lib/supabase';
 import { getTransactions, deleteTransaction } from '@/lib/data';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { ArrowUpRight, ArrowDownRight, Search, Plus, Trash2, CreditCard as Edit } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Search, Plus, Trash2, CreditCard as Edit, CircleCheck as CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -31,11 +32,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Skeleton } from '@/components/ui/skeleton';
+import { TransactionListSkeleton } from '@/components/ui/skeleton-loader';
+import { EmptyState } from '@/components/ui/empty-state';
 import { toast } from 'sonner';
 
 export default function TransactionsPage() {
   const { user } = useAuth();
+  const { t, isRTL } = useLanguage();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -87,11 +90,13 @@ export default function TransactionsPage() {
   const handleDelete = async (id: string) => {
     try {
       await deleteTransaction(id);
-      toast.success('Transaction deleted');
+      toast.success(t('successfullyDeleted'), {
+        icon: <CheckCircle2 className="h-4 w-4 text-emerald-500" />,
+      });
       loadTransactions();
     } catch (error) {
       console.error('Error deleting transaction:', error);
-      toast.error('Failed to delete transaction');
+      toast.error(t('failedToDelete'));
     }
   };
 
@@ -114,17 +119,17 @@ export default function TransactionsPage() {
   const allCategories = Array.from(new Set(transactions.map((t) => t.category)));
 
   return (
-    <AppLayout title="Transactions">
+    <AppLayout title={t('transactions')}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">Transactions</h1>
-            <p className="text-slate-400 mt-1">Manage your income and expenses</p>
+            <h1 className={`text-2xl font-bold text-white ${isRTL ? 'font-vazir' : ''}`}>{t('transactions')}</h1>
+            <p className={`text-slate-400 mt-1 ${isRTL ? 'font-vazir' : ''}`}>{t('manageYourFinances')}</p>
           </div>
           <Link href="/transactions/new">
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2">
               <Plus className="h-4 w-4" />
-              Add Transaction
+              {t('addTransaction')}
             </Button>
           </Link>
         </div>
@@ -133,28 +138,29 @@ export default function TransactionsPage() {
           <CardHeader>
             <div className="flex flex-col lg:flex-row lg:items-center gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500`} />
                 <Input
-                  placeholder="Search transactions..."
+                  placeholder={t('searchTransactions')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-emerald-500"
+                  className={`${isRTL ? 'pr-9' : 'pl-9'} bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-emerald-500`}
+                  dir={isRTL ? 'rtl' : 'ltr'}
                 />
               </div>
               <div className="flex flex-wrap gap-2">
                 <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as typeof typeFilter)}>
                   <SelectTrigger className="w-[130px] bg-slate-900/50 border-slate-600 text-white">
-                    <SelectValue placeholder="Type" />
+                    <SelectValue placeholder={t('transactionType')} />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-slate-700">
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="income">Income</SelectItem>
-                    <SelectItem value="expense">Expense</SelectItem>
+                    <SelectItem value="all">{t('allTypes')}</SelectItem>
+                    <SelectItem value="income">{t('income')}</SelectItem>
+                    <SelectItem value="expense">{t('expense')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger className="w-[150px] bg-slate-900/50 border-slate-600 text-white">
-                    <SelectValue placeholder="Category" />
+                    <SelectValue placeholder={t('category')} />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-slate-700">
                     <SelectItem value="all">All Categories</SelectItem>
@@ -181,33 +187,13 @@ export default function TransactionsPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="space-y-4">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50">
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="h-10 w-10 rounded-full bg-slate-700" />
-                      <div>
-                        <Skeleton className="h-4 w-32 bg-slate-700" />
-                        <Skeleton className="h-3 w-24 mt-2 bg-slate-700" />
-                      </div>
-                    </div>
-                    <Skeleton className="h-4 w-16 bg-slate-700" />
-                  </div>
-                ))}
-              </div>
+              <TransactionListSkeleton count={5} />
             ) : filteredTransactions.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-slate-400">
-                  {searchQuery || typeFilter !== 'all' || categoryFilter !== 'all'
-                    ? 'No transactions match your filters'
-                    : 'No transactions yet'}
-                </p>
-                <Link href="/transactions/new">
-                  <Button variant="link" className="text-emerald-400 hover:text-emerald-300 mt-2">
-                    Add your first transaction
-                  </Button>
-                </Link>
-              </div>
+              <EmptyState
+                type={searchQuery || typeFilter !== 'all' || categoryFilter !== 'all' ? 'search' : 'transactions'}
+                title={searchQuery || typeFilter !== 'all' || categoryFilter !== 'all' ? t('noTransactionsMatchFilter') : t('noTransactions')}
+                description={searchQuery || typeFilter !== 'all' || categoryFilter !== 'all' ? t('adjustingFilters') : t('addFirstTransaction')}
+              />
             ) : (
               <div className="space-y-3">
                 {filteredTransactions.map((transaction) => (
@@ -282,20 +268,20 @@ export default function TransactionsPage() {
                           </AlertDialogTrigger>
                           <AlertDialogContent className="bg-slate-800 border-slate-700">
                             <AlertDialogHeader>
-                              <AlertDialogTitle className="text-white">Delete Transaction</AlertDialogTitle>
-                              <AlertDialogDescription className="text-slate-400">
-                                Are you sure you want to delete this transaction? This action cannot be undone.
+                              <AlertDialogTitle className={`text-white ${isRTL ? 'font-vazir' : ''}`}>{t('delete')} {t('transactions')}</AlertDialogTitle>
+                              <AlertDialogDescription className={`text-slate-400 ${isRTL ? 'font-vazir' : ''}`}>
+                                {t('thisActionCannotBeUndone')}
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel className="bg-slate-700 text-white hover:bg-slate-600 border-slate-600">
-                                Cancel
+                                {t('cancel')}
                               </AlertDialogCancel>
                               <AlertDialogAction
                                 onClick={() => handleDelete(transaction.id)}
                                 className="bg-red-500 hover:bg-red-600 text-white"
                               >
-                                Delete
+                                {t('delete')}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>

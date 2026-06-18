@@ -13,6 +13,10 @@ export const translations = {
     backToLogin: 'Back to Login',
     checkYourEmail: 'Check your email',
     weSentConfirmation: "We've sent a confirmation link to",
+    signingIn: 'Signing in...',
+    tryDemoMode: 'Try Demo Mode',
+    welcomeBack: 'Welcome back! Sign in to your account',
+    enterCredentials: 'Enter your credentials to access your account',
 
     // Navigation
     dashboard: 'Dashboard',
@@ -28,12 +32,17 @@ export const translations = {
     totalExpenses: 'Total Expenses',
     netProfit: 'Net Profit',
     largestExpense: 'Largest Expense',
+    topSpending: 'Top Spending',
     recentTransactions: 'Recent Transactions',
     quickActions: 'Quick Actions',
     viewAll: 'View all',
     viewReports: 'View Reports',
     exportData: 'Export Data',
     welcomeMessage: 'Track your expenses with ease',
+    accountTypeFilter: 'Account Type Filter',
+    family: 'Family',
+    business: 'Business',
+    all: 'All',
 
     // Transactions
     manageYourFinances: 'Manage your income and expenses',
@@ -48,10 +57,13 @@ export const translations = {
     allTime: 'All Time',
     noTransactions: 'No transactions yet',
     addFirstTransaction: 'Add your first transaction to get started',
+    noTransactionsMatchFilter: 'No transactions match your filters',
+    adjustingFilters: 'Try adjusting your search or filters',
 
     // Transaction Form
     transactionDetails: 'Transaction Details',
     transactionType: 'Transaction Type',
+    accountType: 'Account Type',
     amount: 'Amount',
     date: 'Date',
     category: 'Category',
@@ -62,28 +74,20 @@ export const translations = {
     save: 'Save Changes',
     creating: 'Creating...',
     saving: 'Saving...',
+    editTransaction: 'Edit Transaction',
+    updateTransactionDetails: 'Update transaction details',
+    enterTransactionDetails: 'Enter the details of your transaction',
 
-    // Categories
-    categories: {
-      salary: 'Salary',
-      freelance: 'Freelance',
-      business: 'Business',
-      investments: 'Investments',
-      rental: 'Rental',
-      gifts: 'Gifts',
-      other: 'Other',
-      foodDining: 'Food & Dining',
-      transportation: 'Transportation',
-      shopping: 'Shopping',
-      entertainment: 'Entertainment',
-      billsUtilities: 'Bills & Utilities',
-      healthcare: 'Healthcare',
-      education: 'Education',
-      travel: 'Travel',
-      homeGarden: 'Home & Garden',
-      personalCare: 'Personal Care',
-      giftsDonations: 'Gifts & Donations',
-    },
+    // Form Validation
+    invalidEmail: 'Please enter a valid email address',
+    passwordTooShort: 'Password must be at least 6 characters',
+    passwordTooWeak: 'Password should contain letters and numbers',
+    passwordsDoNotMatch: 'Passwords do not match',
+    amountRequired: 'Amount is required',
+    amountInvalid: 'Please enter a valid amount',
+    dateRequired: 'Date is required',
+    amountMin: 'Amount must be greater than 0',
+    requiredField: 'This field is required',
 
     // Receipts
     receiptArchive: 'Receipt Archive',
@@ -106,6 +110,12 @@ export const translations = {
     extractedData: 'Extracted Data',
     reviewAndEdit: 'Review and edit the extracted information',
     saveReceipt: 'Save Receipt',
+    dragAndDrop: 'Drag and drop or click to upload',
+    supportedFormats: 'JPG, PNG or WEBP — any size accepted',
+    noTextFound: 'No text found in image. Please fill in the details manually.',
+    ocrProgress: 'OCR Progress',
+    extracting: 'Extracting',
+    savingReceipt: 'Saving receipt...',
 
     // Reports
     reportsAndAnalytics: 'Reports & Analytics',
@@ -116,11 +126,17 @@ export const translations = {
     monthlyOverview: 'Monthly Overview',
     incomeVsExpenses: 'Income vs expenses over time',
     expensesByCategory: 'Expenses by Category',
+    expensesByAccount: 'Expenses by Account Type',
     categoryBreakdown: 'Category Breakdown',
+    personalVsBusiness: 'Personal vs Business',
     profitTrend: 'Profit Trend',
     trackProfitOverTime: 'Track your profit over time',
     exportCsv: 'Export CSV',
     exporting: 'Exporting...',
+    timeRange: 'Time Range',
+    last3MonthsOpt: 'Last 3 months',
+    last6MonthsOpt: 'Last 6 months',
+    last12MonthsOpt: 'Last 12 months',
 
     // Settings
     profileInformation: 'Profile Information',
@@ -160,7 +176,26 @@ export const translations = {
     pleaseSelectCategory: 'Please select a category',
     pleaseFillAllFields: 'Please fill in all required fields',
     passwordMustBe6Chars: 'Password must be at least 6 characters',
-    passwordsDoNotMatch: 'Passwords do not match',
+    copyToClipboard: 'Copy to clipboard',
+    copied: 'Copied!',
+    close: 'Close',
+
+    // Data Export/Import
+    dataManagement: 'Data Management',
+    export: 'Export',
+    import: 'Import',
+    exportYourData: 'Export your data',
+    importYourData: 'Import your data',
+    exportTransactions: 'Export Transactions',
+    exportReceipts: 'Export Receipts',
+    importTransactions: 'Import Transactions',
+    importFromCSV: 'Import from CSV',
+    selectFile: 'Select File',
+    importSuccess: 'Successfully imported',
+    importError: 'Failed to import',
+    recordsImported: 'records imported',
+    backupData: 'Backup Data',
+    restoreData: 'Restore Data',
 
     // Status
     pending: 'Pending',
@@ -168,6 +203,11 @@ export const translations = {
     rejected: 'Rejected',
     manual: 'Manual',
     receipt: 'Receipt',
+
+    // Empty States
+    noDataAvailable: 'No data available',
+    startByAdding: 'Start by adding some data',
+    nothingHere: "There's nothing here yet",
   },
 
   fa: {
@@ -184,6 +224,10 @@ export const translations = {
     backToLogin: 'بازگشت به ورود',
     checkYourEmail: 'ایمیل خود را بررسی کنید',
     weSentConfirmation: 'لینک تأیید به این آدرس ارسال شد:',
+    signingIn: 'در حال ورود...',
+    tryDemoMode: 'حالت دمو',
+    welcomeBack: 'خوش آمدید! به حساب خود وارد شوید',
+    enterCredentials: 'اطلاعات خود را وارد کنید',
 
     // Navigation
     dashboard: 'داشبورد',
@@ -199,12 +243,17 @@ export const translations = {
     totalExpenses: 'کل هزینه‌ها',
     netProfit: 'سود خالص',
     largestExpense: 'بزرگترین هزینه',
+    topSpending: 'بیشترین هزینه',
     recentTransactions: 'تراکنش‌های اخیر',
     quickActions: 'دسترسی سریع',
     viewAll: 'مشاهده همه',
     viewReports: 'مشاهده گزارش',
     exportData: 'خروجی داده',
     welcomeMessage: 'هزینه‌های خود را آسان مدیریت کنید',
+    accountTypeFilter: 'فیلتر نوع حساب',
+    family: 'خانواده',
+    business: 'کسب‌وکار',
+    all: 'همه',
 
     // Transactions
     manageYourFinances: 'مدیریت درآمد و هزینه‌های شما',
@@ -219,10 +268,13 @@ export const translations = {
     allTime: 'کل زمان',
     noTransactions: 'تراکنشی وجود ندارد',
     addFirstTransaction: 'اولین تراکنش خود را اضافه کنید',
+    noTransactionsMatchFilter: 'تراکنشی با فیلتر شما یافت نشد',
+    adjustingFilters: 'جستجو یا فیلترها را تغییر دهید',
 
     // Transaction Form
     transactionDetails: 'جزئیات تراکنش',
     transactionType: 'نوع تراکنش',
+    accountType: 'نوع حساب',
     amount: 'مبلغ',
     date: 'تاریخ',
     category: 'دسته‌بندی',
@@ -233,28 +285,20 @@ export const translations = {
     save: 'ذخیره تغییرات',
     creating: 'در حال ایجاد...',
     saving: 'در حال ذخیره...',
+    editTransaction: 'ویرایش تراکنش',
+    updateTransactionDetails: 'به‌روزرسانی جزئیات تراکنش',
+    enterTransactionDetails: 'جزئیات تراکنش را وارد کنید',
 
-    // Categories
-    categories: {
-      salary: 'حقوق',
-      freelance: 'فریلنس',
-      business: 'کسب‌وکار',
-      investments: 'سرمایه‌گذاری',
-      rental: 'اجاره',
-      gifts: 'هدایا',
-      other: 'سایر',
-      foodDining: 'غذا و رستوران',
-      transportation: 'حمل‌ونقل',
-      shopping: 'خرید',
-      entertainment: 'سرگرمی',
-      billsUtilities: 'قبوض و خدمات',
-      healthcare: 'بهداشت و درمان',
-      education: 'آموزش',
-      travel: 'سفر',
-      homeGarden: 'خانه و باغ',
-      personalCare: 'مراقبت شخصی',
-      giftsDonations: 'هدیه و خیریه',
-    },
+    // Form Validation
+    invalidEmail: 'لطفاً ایمیل معتبر وارد کنید',
+    passwordTooShort: 'رمز عبور باید حداقل ۶ کاراکتر باشد',
+    passwordTooWeak: 'رمز عبور باید شامل حروف و اعداد باشد',
+    passwordsDoNotMatch: 'رمز عبور مطابقت ندارد',
+    amountRequired: 'مبلغ الزامی است',
+    amountInvalid: 'لطفاً مبلغ معتبر وارد کنید',
+    dateRequired: 'تاریخ الزامی است',
+    amountMin: 'مبلغ باید بیشتر از صفر باشد',
+    requiredField: 'این فیلد الزامی است',
 
     // Receipts
     receiptArchive: 'آرشیو رسیدها',
@@ -277,6 +321,12 @@ export const translations = {
     extractedData: 'اطلاعات استخراج شده',
     reviewAndEdit: 'اطلاعات را بررسی و ویرایش کنید',
     saveReceipt: 'ذخیره رسید',
+    dragAndDrop: 'بکشید و رها کنید یا کلیک کنید',
+    supportedFormats: 'JPG، PNG یا WEBP — هر اندازه‌ای پذیرفته می‌شود',
+    noTextFound: 'متن در تصویر یافت نشد. لطفاً اطلاعات را دستی وارد کنید.',
+    ocrProgress: 'پیشرفت OCR',
+    extracting: 'استخراج',
+    savingReceipt: 'در حال ذخیره رسید...',
 
     // Reports
     reportsAndAnalytics: 'گزارش‌ها و تحلیل',
@@ -287,11 +337,17 @@ export const translations = {
     monthlyOverview: 'نمای کلی ماهانه',
     incomeVsExpenses: 'درآمد و هزینه در طول زمان',
     expensesByCategory: 'هزینه‌ها بر اساس دسته',
+    expensesByAccount: 'هزینه‌ها بر اساس نوع حساب',
     categoryBreakdown: 'تفکیک دسته‌ها',
+    personalVsBusiness: 'شخصی در برابر کسب‌وکار',
     profitTrend: 'روند سود',
     trackProfitOverTime: 'پیگیری سود در طول زمان',
     exportCsv: 'خروجی CSV',
     exporting: 'در حال خروجی...',
+    timeRange: 'بازه زمانی',
+    last3MonthsOpt: '۳ ماه گذشته',
+    last6MonthsOpt: '۶ ماه گذشته',
+    last12MonthsOpt: '۱۲ ماه گذشته',
 
     // Settings
     profileInformation: 'اطلاعات پروفایل',
@@ -331,7 +387,26 @@ export const translations = {
     pleaseSelectCategory: 'لطفاً دسته‌بندی را انتخاب کنید',
     pleaseFillAllFields: 'لطفاً همه فیلدهای الزامی را پر کنید',
     passwordMustBe6Chars: 'رمز عبور باید حداقل ۶ کاراکتر باشد',
-    passwordsDoNotMatch: 'رمز عبور مطابقت ندارد',
+    copyToClipboard: 'کپی به کلیپ‌بورد',
+    copied: 'کپی شد!',
+    close: 'بستن',
+
+    // Data Export/Import
+    dataManagement: 'مدیریت داده',
+    export: 'خروجی',
+    import: 'ورودی',
+    exportYourData: 'خروجی داده‌ها',
+    importYourData: 'ورودی داده‌ها',
+    exportTransactions: 'خروجی تراکنش‌ها',
+    exportReceipts: 'خروجی رسیدها',
+    importTransactions: 'ورودی تراکنش‌ها',
+    importFromCSV: 'ورودی از CSV',
+    selectFile: 'انتخاب فایل',
+    importSuccess: 'ورودی با موفقیت انجام شد',
+    importError: 'ورودی ناموفق',
+    recordsImported: 'رکورد ورودی شد',
+    backupData: 'پشتیبان‌گیری',
+    restoreData: 'بازیابی',
 
     // Status
     pending: 'در انتظار',
@@ -339,6 +414,11 @@ export const translations = {
     rejected: 'رد شده',
     manual: 'دستی',
     receipt: 'رسید',
+
+    // Empty States
+    noDataAvailable: 'داده‌ای موجود نیست',
+    startByAdding: 'با افزودن داده شروع کنید',
+    nothingHere: 'اینجا خالی است',
   },
 };
 
